@@ -229,4 +229,46 @@ describe('MigrationRunnerService', () => {
       ).rejects.toThrow(NotFoundException);
     });
   });
+  describe('admin audit logging (#905)', () => {
+    it('records acting admin wallet in audit log on migration run and rollback', async () => {
+      const mockAudit = { logOperation: jest.fn().mockResolvedValue(undefined) };
+      const auditModule: TestingModule = await Test.createTestingModule({
+        providers: [
+          MigrationRunnerService,
+          MigrationRegistryService,
+          MigrationStateStore,
+          { provide: MIGRATION_DEFINITIONS, useValue: [fake] },
+          { provide: 'AuditService', useValue: mockAudit },
+        ],
+      })
+        .useMocker(token => {
+          if (token === 'AuditService' || (token as any)?.name === 'AuditService') return mockAudit;
+        })
+        .compile();
+
+      const auditRunner = auditModule.get<MigrationRunnerService>(MigrationRunnerService);
+      (auditRunner as any).audit = mockAudit;
+
+      const run = await auditRunner.run('fake-migration', {}, 'GADMIN_TEST_WALLET');
+      expect(run.adminAddress).toBe('GADMIN_TEST_WALLET');
+      expect(mockAudit.logOperation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: 'MIGRATION_RUN',
+          user: 'GADMIN_TEST_WALLET',
+          entityId: run.runId,
+          entityType: 'migration',
+        }),
+      );
+
+      await auditRunner.rollback(run.runId, 'GADMIN_TEST_WALLET');
+      expect(mockAudit.logOperation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: 'MIGRATION_ROLLBACK',
+          user: 'GADMIN_TEST_WALLET',
+          entityId: run.runId,
+          entityType: 'migration',
+        }),
+      );
+    });
+  });
 });

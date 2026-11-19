@@ -50,6 +50,7 @@ export interface MigrationRun {
   failedAt?: string;
   rollbackReason?: string;
   auditNote?: string;
+  adminAddress?: string;
 }
 
 /** Result of processing a single bounded backfill batch. */
