@@ -374,11 +374,22 @@ export class RateLimitGuard implements CanActivate {
     identities: RateLimitIdentity[],
     route: string,
   ): boolean {
-    const policy: 'allow' | 'deny' =
-      this.reflector.getAllAndOverride<'allow' | 'deny'>('rate_limit_on_redis_error', [
-        context.getHandler(),
-        context.getClass(),
-      ]) ?? config.RATE_LIMIT_ON_REDIS_ERROR;
+    const isAuthRoute =
+      route.startsWith('/auth') ||
+      route.startsWith('auth') ||
+      route.includes('/auth/') ||
+      route.endsWith('/auth');
+
+    const routePolicy = this.reflector.getAllAndOverride<'allow' | 'deny'>('rate_limit_on_redis_error', [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    // /auth/* is hardcoded to deny on Redis outage as an essential security rule.
+    // Non-auth routes honor the route override if present, otherwise falling back to RATE_LIMIT_ON_REDIS_ERROR.
+    const policy: 'allow' | 'deny' = isAuthRoute
+      ? 'deny'
+      : (routePolicy ?? config.RATE_LIMIT_ON_REDIS_ERROR ?? 'allow');
 
     this.metrics?.increment('rate_limit_redis_error_total', { route, policy });
     this.logRedisError(error, identities, route, policy);
