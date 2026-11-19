@@ -250,4 +250,15 @@ describe('Environment Configuration', () => {
     // The validation should accept MAINNET, but stellar.config.ts normalizes it to PUBLIC
     expect(config.STELLAR_NETWORK).toBe('MAINNET');
   });
+
+  it('requires SOROBAN_RPC_URL in production', () => {
+    process.env = {
+      NODE_ENV: 'production',
+      JWT_SECRET: 'production-secret-at-least-32-chars-long',
+      REDIS_URL: 'redis://localhost:6379',
+      CORS_ORIGIN: 'https://trustflow.io',
+    };
+    const { validateEnv: freshValidateEnv } = jest.requireActual('./env.config');
+    expect(() => freshValidateEnv()).toThrow('SOROBAN_RPC_URL is required in production');
+  });
 });
