@@ -1,5 +1,7 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { SanitizedLogger } from '../common/logging/sanitized-logger';
+import { CorrelationIdStore } from '../common/logging/correlation-id.store';
+import { requestContextStorage } from '../common/logging/request-context';
 import { Redis } from 'ioredis';
 import { REDIS_CLIENT } from '../common/redis/redis.module';
 import { MetricsService } from '../monitoring/metrics.service';
@@ -82,7 +84,18 @@ export class OutboxService {
    * Builds a new OutboxEvent but does NOT persist it yet — callers must follow
    * up with `append()` or `appendToTransaction()`.
    */
-  create(type: string, aggregateType: string, aggregateId: string, payload: unknown): OutboxEvent {
+  create(
+    type: string,
+    aggregateType: string,
+    aggregateId: string,
+    payload: unknown,
+    correlationId?: string,
+  ): OutboxEvent {
+    const resolvedCorrelationId =
+      correlationId ??
+      this.correlationIdStore?.get() ??
+      requestContextStorage.getStore()?.requestId;
+
     return {
       id: randomUUID(),
       dedupKey: `${type}:${aggregateType}:${aggregateId}:${Date.now()}`,
@@ -94,6 +107,7 @@ export class OutboxService {
       attempts: 0,
       nextAttemptAt: Date.now(),
       createdAt: new Date().toISOString(),
+      correlationId: resolvedCorrelationId,
     };
   }
 

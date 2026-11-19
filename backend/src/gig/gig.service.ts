@@ -30,6 +30,7 @@ import { EscrowService } from '../escrow/escrow.service';
 import { config } from '../config/env.config';
 import { amountGreaterThanOrEqual, amountLessThanOrEqual } from '../common/amount';
 import { normalizePagination, paginate } from '../common/pagination';
+import { excludeSoftDeleted } from '../common/database/soft-delete';
 
 const GIG_KEY_PREFIX = 'gig:';
 const GIGS_INDEX_KEY = 'gigs:index';
@@ -166,6 +167,7 @@ export class GigService implements OnModuleInit {
       gigs = [...this.gigs.values()].filter(g => g.creator === address);
     }
 
+    gigs = excludeSoftDeleted(gigs);
     if (options?.status) {
       gigs = gigs.filter(g => g.status === options.status);
     }
@@ -378,11 +380,12 @@ export class GigService implements OnModuleInit {
       if (gig.status === GigStatus.ACCEPTED) {
         throw new BadRequestException('Cannot delete an accepted gig');
       }
+      gig.deletedAt = new Date().toISOString();
       if (this.redis) {
         try {
           const transaction = this.redis
             .multi()
-            .del(this.gigKey(id))
+            .set(this.gigKey(id), JSON.stringify(gig))
             .zrem(GIGS_INDEX_KEY, id)
             .zrem(GIGS_OPEN_BY_RESPOND_BY_KEY, id)
             .srem(this.creatorKey(gig.creator), id);
@@ -397,7 +400,7 @@ export class GigService implements OnModuleInit {
           this.logFallback('remove', err);
         }
       }
-      this.gigs.delete(id);
+      this.gigs.set(id, gig);
       await this.invalidateSearchCache();
     });
   }
