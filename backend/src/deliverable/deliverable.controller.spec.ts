@@ -39,6 +39,23 @@ describe('DeliverableController', () => {
     controller = module.get(DeliverableController);
   });
 
+  describe('review() (#923)', () => {
+    it('passes review payload and authenticated wallet to service', async () => {
+      mockService.review = jest.fn().mockResolvedValue({ id: 'del-1', status: 'approved' });
+      const result = await controller.review('del-1', { status: 'APPROVED' }, makeReq() as any);
+      expect(result).toEqual({ id: 'del-1', status: 'approved' });
+      expect(mockService.review).toHaveBeenCalledWith('del-1', { status: 'APPROVED' }, FREELANCER);
+    });
+
+    it('propagates 409 ConflictException when already finalized', async () => {
+      const { ConflictException } = jest.requireActual('@nestjs/common');
+      mockService.review = jest.fn().mockRejectedValue(new ConflictException('already finalized'));
+      await expect(
+        controller.review('del-1', { status: 'APPROVED' }, makeReq() as any),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
   describe('upload()', () => {
     it('passes the validated body and the authenticated wallet to the service', async () => {
       const result = await controller.upload(VALID_BODY, makeReq() as any);
