@@ -14,6 +14,8 @@ export const CreateGigSchema = z.object({
     .positive()
     .max(24 * 30, 'Response window cannot exceed 30 days')
     .optional(),
+  escrowId: z.string().optional(),
+  reservationId: z.string().optional(),
 });
 
 export type CreateGigDto = z.infer<typeof CreateGigSchema>;

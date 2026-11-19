@@ -15,6 +15,7 @@ import { GigStatus } from '../gig/gig.entity';
 import { UploadDeliverableDto } from './deliverable.dto';
 import { Deliverable, DeliverableStatus } from './deliverable.entity';
 import { PinStatus } from '../ipfs-pinning/ipfs-pinning.types';
+import { PaginatedResponse, PaginationQuery, paginate } from '../common/pagination';
 
 const DELIVERABLE_KEY_PREFIX = 'deliverable:';
 const DELIVERABLES_BY_GIG_PREFIX = 'deliverables:gig:';
@@ -146,16 +147,23 @@ export class DeliverableService {
     return d;
   }
 
-  async findByGig(gigId: string): Promise<Deliverable[]> {
+  async findByGig(
+    gigId: string,
+    query?: PaginationQuery,
+  ): Promise<PaginatedResponse<Deliverable>> {
+    let deliverables: Deliverable[];
     if (this.redis) {
       try {
         const ids = await this.redis.smembers(this.gigKey(gigId));
-        return await this.fetchMany(ids);
+        deliverables = await this.fetchMany(ids);
       } catch (err) {
         this.logger.error('Redis unavailable for deliverable.findByGig', err);
+        deliverables = [...this.deliverables.values()].filter(d => d.gigId === gigId);
       }
+    } else {
+      deliverables = [...this.deliverables.values()].filter(d => d.gigId === gigId);
     }
-    return [...this.deliverables.values()].filter(d => d.gigId === gigId);
+    return paginate(deliverables, query);
   }
 
   private async tryFindById(id: string): Promise<Deliverable | undefined> {

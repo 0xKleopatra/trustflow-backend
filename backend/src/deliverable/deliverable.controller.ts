@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -15,6 +16,7 @@ import {
   ApiBody,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -100,8 +102,29 @@ export class DeliverableController {
   @Get('gig/:gigId')
   @ApiOperation({ summary: 'List deliverables for a gig' })
   @ApiParam({ name: 'gigId', example: 'gig-1234567890-ab12cd' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (1-indexed). Defaults to 1.',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Results per page, up to 100. Defaults to 20.',
+  })
   @ApiResponse({ status: 200, description: 'List of deliverables' })
-  findByGig(@Param('gigId') gigId: string) {
-    return this.deliverableService.findByGig(gigId);
+  findByGig(
+    @Param('gigId') gigId: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    const pageNum = page !== undefined ? Number(page) : undefined;
+    const limitNum = limit !== undefined ? Number(limit) : undefined;
+    return this.deliverableService.findByGig(gigId, {
+      page: Number.isFinite(pageNum) ? pageNum : undefined,
+      limit: Number.isFinite(limitNum) ? limitNum : undefined,
+    });
   }
 }

@@ -80,4 +80,41 @@ describe('DeliverableController', () => {
       expect(mockService.upload).not.toHaveBeenCalled();
     });
   });
+
+  describe('findByGig()', () => {
+    it('delegates to the service with gigId and parsed pagination query', async () => {
+      mockService.findByGig.mockResolvedValue({
+        items: [{ id: 'del-1', gigId: 'gig-1' }],
+        total: 1,
+        page: 2,
+        limit: 10,
+      });
+
+      const result = await controller.findByGig('gig-1', 2, 10);
+
+      expect(mockService.findByGig).toHaveBeenCalledWith('gig-1', { page: 2, limit: 10 });
+      expect(result).toEqual({
+        items: [{ id: 'del-1', gigId: 'gig-1' }],
+        total: 1,
+        page: 2,
+        limit: 10,
+      });
+    });
+
+    it('handles undefined pagination parameters with default query shape', async () => {
+      mockService.findByGig.mockResolvedValue({
+        items: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+      });
+
+      await controller.findByGig('gig-1');
+
+      expect(mockService.findByGig).toHaveBeenCalledWith('gig-1', {
+        page: undefined,
+        limit: undefined,
+      });
+    });
+  });
 });

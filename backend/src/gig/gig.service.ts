@@ -26,6 +26,7 @@ import {
   PaginatedGigs,
 } from './gig.entity';
 import { OutboxService } from '../outbox/outbox.service';
+import { EscrowService } from '../escrow/escrow.service';
 import { config } from '../config/env.config';
 import { amountGreaterThanOrEqual, amountLessThanOrEqual } from '../common/amount';
 import { normalizePagination, paginate } from '../common/pagination';
@@ -61,6 +62,7 @@ export class GigService implements OnModuleInit {
     @Inject(REDIS_CLIENT) private readonly redis: Redis | null,
     private readonly metrics: MetricsService,
     @Optional() private readonly outbox?: OutboxService,
+    @Optional() private readonly escrowService?: EscrowService,
   ) {}
 
   /**
@@ -92,6 +94,8 @@ export class GigService implements OnModuleInit {
       createdAt: now.toISOString(),
       respondBy: new Date(now.getTime() + windowHours * 60 * 60 * 1000).toISOString(),
       version: 1,
+      escrowId: dto.escrowId,
+      reservationId: dto.reservationId,
     };
 
     const event = this.outbox?.create(GIG_EVENTS.GIG_CREATED, 'gig', id, gig);
@@ -321,8 +325,34 @@ export class GigService implements OnModuleInit {
       gig.cancelledAt = new Date().toISOString();
       gig.version = (gig.version || 1) + 1;
       await this.persistResolved(gig, GIG_EVENTS.GIG_CANCELLED);
+      await this.releaseReservedFunds(gig);
       return gig;
     });
+  }
+
+  /**
+   * Releases any tentatively reserved funds or linked escrow records when a gig is expired
+   * or cancelled unaccepted.
+   */
+  private async releaseReservedFunds(gig: Gig): Promise<void> {
+    if (gig.escrowId && this.escrowService) {
+      try {
+        await this.escrowService.cancel(gig.escrowId);
+        this.logger.log(`Released escrow reservation ${gig.escrowId} for gig ${gig.id}`);
+      } catch (err) {
+        this.logger.error(`Failed to release escrow reservation ${gig.escrowId} for gig ${gig.id}`, err);
+      }
+    }
+    if (this.redis) {
+      try {
+        if (gig.reservationId) {
+          await this.redis.del(`reservation:${gig.reservationId}`);
+        }
+        await this.redis.del(`gig:${gig.id}:reservation`);
+      } catch (err) {
+        this.logger.error(`Failed to delete Redis reservation keys for gig ${gig.id}`, err);
+      }
+    }
   }
 
   async update(id: string, dto: UpdateGigDto): Promise<Gig> {
@@ -383,6 +413,7 @@ export class GigService implements OnModuleInit {
       gig.expiredAt = new Date().toISOString();
       gig.version = (gig.version || 1) + 1;
       await this.persistResolved(gig, GIG_EVENTS.GIG_EXPIRED);
+      await this.releaseReservedFunds(gig);
       return gig;
     });
   }
