@@ -223,12 +223,14 @@ export class OutboxService {
 
     if (this.redis) {
       const ttl = config.OUTBOX_DELIVERED_TTL_SECONDS;
-      const tx = this.redis
-        .multi()
-        .set(this.eventKey(event.id), JSON.stringify(updated))
-        .zrem(PROCESSING_KEY, event.id)
+      const tx = this.redis.multi();
+      if (ttl > 0) {
+        tx.set(this.eventKey(event.id), JSON.stringify(updated), 'EX', ttl);
+      } else {
+        tx.set(this.eventKey(event.id), JSON.stringify(updated));
+      }
+      tx.zrem(PROCESSING_KEY, event.id)
         .zrem(PENDING_KEY, event.id);
-      if (ttl > 0) tx.expire(this.eventKey(event.id), ttl);
       const results = await tx.exec();
       this.assertTransactionOk(results);
       return;

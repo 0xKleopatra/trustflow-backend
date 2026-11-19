@@ -4,10 +4,12 @@ import {
   Post,
   Param,
   Body,
+  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { AuthenticatedRequest } from '../auth/auth.types';
 import { ApiTags, ApiOperation, ApiParam, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { MigrationRunnerService } from './migration-runner.service';
 import { MigrationRegistryService } from './migration-registry.service';
@@ -69,8 +71,12 @@ export class MigrationController {
   @ApiResponse({ status: 403, description: 'Caller is authenticated but not an admin address' })
   @ApiResponse({ status: 404, description: 'Migration not registered' })
   @ApiResponse({ status: 409, description: 'Migration already has an active run' })
-  run(@Param('name') name: string, @Body() dto: RunMigrationDto) {
-    return this.runner.run(name, dto);
+  run(
+    @Param('name') name: string,
+    @Body() dto: RunMigrationDto,
+    @Req() req?: AuthenticatedRequest,
+  ) {
+    return this.runner.run(name, dto, req?.user?.address);
   }
 
   @Post('runs/:runId/rollback')
@@ -83,8 +89,8 @@ export class MigrationController {
   @ApiResponse({ status: 400, description: 'Run already rolled back' })
   @ApiResponse({ status: 403, description: 'Caller is authenticated but not an admin address' })
   @ApiResponse({ status: 409, description: 'Run still in progress' })
-  rollback(@Param('runId') runId: string) {
-    return this.runner.rollback(runId);
+  rollback(@Param('runId') runId: string, @Req() req?: AuthenticatedRequest) {
+    return this.runner.rollback(runId, req?.user?.address);
   }
 
   @Post(':name/mark-applied')
