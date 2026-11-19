@@ -460,6 +460,10 @@ const EnvSchema = z
           'CORS_ORIGIN must be explicitly set to a comma-separated list of allowed origins in production; wildcard is not allowed',
         );
       }
+
+      if (!data.SOROBAN_RPC_URL || data.SOROBAN_RPC_URL.trim() === '') {
+        issue('SOROBAN_RPC_URL', 'SOROBAN_RPC_URL is required in production');
+      }
     }
 
     const secret = data.JWT_SECRET;
@@ -497,7 +501,7 @@ const EnvSchema = z
         ? 'https://horizon.stellar.org'
         : 'https://horizon-testnet.stellar.org';
     }
-    if (!data.SOROBAN_RPC_URL) {
+    if (!data.SOROBAN_RPC_URL && !isProduction) {
       data.SOROBAN_RPC_URL = isPublicNetwork
         ? 'https://soroban-mainnet.stellar.org'
         : 'https://soroban-testnet.stellar.org';
