@@ -322,9 +322,9 @@ describe('RateLimitGuard', () => {
       expect(mockRedis.rateLimitCheck).toHaveBeenCalledTimes(2);
       expect(mockRedis.rateLimitCheck).toHaveBeenNthCalledWith(
         2,
-        'ratelimit:{wallet:gabc123:get:_auth_challenge}:bucket',
-        'ratelimit:{wallet:gabc123:get:_auth_challenge}:lockout',
-        'ratelimit:{wallet:gabc123:get:_auth_challenge}:abuse',
+        'ratelimit:{wallet:testnet:gabc123:get:_auth_challenge}:bucket',
+        'ratelimit:{wallet:testnet:gabc123:get:_auth_challenge}:lockout',
+        'ratelimit:{wallet:testnet:gabc123:get:_auth_challenge}:abuse',
         300, // AUTHENTICATED tier (verified wallet present) — see RATE_TIER_CONFIGS
         60_000,
         120_000,
@@ -352,7 +352,7 @@ describe('RateLimitGuard', () => {
       expect(mockRedis.rateLimitCheck).toHaveBeenCalledTimes(2);
       expect(mockRedis.rateLimitCheck).toHaveBeenNthCalledWith(
         2,
-        'ratelimit:{wallet:gabc123:get:_auth_challenge}:bucket',
+        'ratelimit:{wallet:testnet:gabc123:get:_auth_challenge}:bucket',
         expect.any(String),
         expect.any(String),
         300, // AUTHENTICATED tier (verified wallet present) — see RATE_TIER_CONFIGS
@@ -463,6 +463,11 @@ describe('RateLimitGuard', () => {
         ),
       );
       expect(mockRedis.rateLimitCheck).toHaveBeenCalledTimes(1);
+    });
+
+    it('keys wallet rate limits by network so testnet and mainnet do not share a quota (#937)', () => {
+      const keysTestnet = (guard as any).buildKeys('wallet', 'gwallet1', 'get:_auth_challenge');
+      expect(keysTestnet.bucket).toContain('ratelimit:{wallet:testnet:gwallet1:get:_auth_challenge}:bucket');
     });
 
     it('should reject immediately while a lockout key exists', async () => {
@@ -759,7 +764,7 @@ describe('RateLimitGuard Supertest integration', () => {
     expect(mockRedis.rateLimitCheck).toHaveBeenCalledTimes(2);
     expect(mockRedis.rateLimitCheck).toHaveBeenNthCalledWith(
       2,
-      expect.stringContaining('ratelimit:{wallet:gabc123'),
+      expect.stringContaining('ratelimit:{wallet:testnet:gabc123'),
       expect.any(String),
       expect.any(String),
       300, // AUTHENTICATED tier (verified wallet present) — see RATE_TIER_CONFIGS
