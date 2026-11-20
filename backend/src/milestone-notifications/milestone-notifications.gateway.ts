@@ -1,14 +1,3 @@
-import { OnModuleInit, OnModuleDestroy, Inject, Optional } from '@nestjs/common';
-import { SanitizedLogger } from '../common/logging/sanitized-logger';
-import {
-  MessageBody,
-  OnGatewayConnection,
-  OnGatewayDisconnect,
-  SubscribeMessage,
-  WebSocketGateway,
-  WebSocketServer,
-  ConnectedSocket,
-} from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Redis } from 'ioredis';
 import { REDIS_CLIENT } from '../common/redis/redis.module';

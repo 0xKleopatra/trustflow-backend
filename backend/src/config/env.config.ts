@@ -35,7 +35,17 @@ const EnvSchema = z
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
     // Server configuration
-    PORT: z.coerce.number().int().positive().default(3001),
+    // Coercion alone is not enough: `.int().positive()` rejects non-numeric values such as
+    // `PORT=abc` (NaN) at validation time, and `.max(65535)` rejects values that would only
+    // fail later with an obscure `app.listen()` socket error. Bound the port so startup
+    // always fails fast with an error that names PORT.
+    PORT: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(65535)
+      .describe('HTTP port to listen on (1-65535)')
+      .default(3001),
     CORS_ORIGIN: z.preprocess(
       val => {
         if (typeof val !== 'string') return undefined;
@@ -204,10 +214,11 @@ const EnvSchema = z
     SENTRY_DSN: z
       .preprocess(blankToUndefined, z.string().url().optional())
       .describe('Sentry error tracking DSN; errors are logged but not reported when unset'),
-    SENTRY_TRACES_SAMPLE_RATE: z.preprocess(
-      blankToUndefined,
-      z.coerce.number().min(0).max(1).optional(),
-    ).describe('Sentry traces sample rate (0.0 to 1.0). Defaults to 0.2 in production, 1.0 otherwise (#934).'),
+    SENTRY_TRACES_SAMPLE_RATE: z
+      .preprocess(blankToUndefined, z.coerce.number().min(0).max(1).optional())
+      .describe(
+        'Sentry traces sample rate (0.0 to 1.0). Defaults to 0.2 in production, 1.0 otherwise (#934).',
+      ),
     APP_RELEASE: optionalString(),
 
     // OpenTelemetry Configuration
@@ -528,6 +539,8 @@ const EnvSchema = z
       if (!secret || secret.trim() === '') {
         issue('JWT_SECRET', 'JWT_SECRET is required in production');
       } else if (PLACEHOLDER_JWT_SECRETS.has(secret.trim().toLowerCase())) {
+        // Check known placeholders before length so a short placeholder gets the more
+        // actionable "do not ship this value" message rather than only a length warning.
         issue('JWT_SECRET', 'JWT_SECRET must not be a placeholder value in production');
       } else if (secret.length < 32) {
         issue('JWT_SECRET', 'JWT_SECRET must be at least 32 characters in production');
