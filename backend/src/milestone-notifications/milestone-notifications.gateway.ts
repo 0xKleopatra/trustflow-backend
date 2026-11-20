@@ -79,6 +79,10 @@ export class MilestoneNotificationsGateway
 
   onModuleInit() {
     if (this.redis) {
+      // A Redis connection in subscribe mode cannot issue regular commands: once SUBSCRIBE
+      // is sent, the connection is dedicated to pub/sub and any GET/SET/pipeline from a
+      // caller sharing it would block or error. `duplicate()` opens a second, purpose-built
+      // connection for subscriptions so the shared REDIS_CLIENT stays command-only.
       this.subscriber = this.redis.duplicate();
 
       this.subscriber.on('error', err =>
